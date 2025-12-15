@@ -227,7 +227,7 @@
                 """
         [[[job]]]
             batch system = slurm
-            execution time limit = PT2H
+            execution time limit = PT1H
             [[[directives]]]
                 --ntasks = 1
                 --cpus-per-task = 1
