@@ -2,8 +2,8 @@
     title = "M2 ssu_n14 Obs"
 
 [scheduling]
-    initial cycle point = 19800101T0000
-    final cycle point = 20240601T0000
+    initial cycle point = 20000101T0000
+    final cycle point = 20060601T0000
     
     [[dependencies]]
         [[[P1M]]]
