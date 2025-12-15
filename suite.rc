@@ -8,7 +8,7 @@
     [[dependencies]]
         [[[P1M]]]
             graph = """
-                debug => move_jobs => process_jobs:succeed => metric_jobs:succeed => combine_jobs:succeed
+                debug => move_jobs => process_jobs:succeed => combine_jobs
                 combine_jobs[-P1M]:succeed => debug
             """
 
