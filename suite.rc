@@ -139,7 +139,6 @@
 
             for synop in "${SYNOP_TIMES[@]}"; do
                 process_job=$(sbatch --parsable \
-                    --dependency=afterok:${move_deps} \
                     -J ${YEAR_TABLE}.${satellite}.${synop}.process \
                     -o ${SLURM_LOG_DIR}/${synop}.process.log \
                     --export=YEAR_TABLE=${YEAR_TABLE},INSTRUMENT_TABLE=${satellite},SYNOP_TABLE=${synop},ExpID=$ExpID \
@@ -154,14 +153,25 @@
         
             process_deps=$(IFS=':'; echo "${process_job_ids[*]}")
 
+            all_process_job=$(sbatch --parsable \
+                --dependency=afterok:${process_deps} \
+                -J ${YEAR_TABLE}.${satellite}.all.process \
+                -o ${SLURM_LOG_DIR}/all.process.log \
+                --export=YEAR_TABLE=${YEAR_TABLE},INSTRUMENT_TABLE=${satellite},SYNOP_TABLE=all,ExpID=$ExpID \
+                --time=1:00:00 \
+                --nodes=1 \
+                --ntasks-per-node=4 \
+                --cpus-per-task=1 \
+                ${SCRIPT_DIR}/process_gritas_sat.j)
+
+            echo "    - All-SYNOP process job: $all_process_job"
+
             echo "Waiting for jobs: $process_deps"
 
-            for job_id in "${process_job_ids[@]}"; do
-                    while squeue -j $job_id >/dev/null 2>&1; do
-                            sleep 30
-                    done
+            while squeue -j $all_process_job >/dev/null 2>&1; do
+                sleep 30
             done
-            echo "All $process_deps jobs completed"
+            echo "$all_process_job job completed"
 
         """
         [[[job]]]
@@ -202,46 +212,19 @@
                                 DAY_TABLE=(31 29 31 30 31 30 31 31 30 31 30 31 )
                         fi
                 fi
-            SLURM_LOG_DIR=${CYLC_TASK_WORK_DIR}
-
-            for synop in "${SYNOP_TIMES[@]}"; do
-                process_job=$(sbatch --parsable \
-                    --dependency=afterok:${move_deps} \
-                    -J ${YEAR_TABLE}.${satellite}.${synop}.process \
-                    -o ${SLURM_LOG_DIR}/${synop}.process.log \
-                    --export=YEAR_TABLE=${YEAR_TABLE},INSTRUMENT_TABLE=${satellite},SYNOP_TABLE=${synop},ExpID=$ExpID \
-                    --time=1:00:00 \
+                SLURM_LOG_DIR=${CYLC_TASK_WORK_DIR}
+                echo "  - Submitting combine job for $satellite"
+                combine_job=$(sbatch --parsable \
+                    -J ${YEAR_TABLE}.${satellite}.combine \
+                    -o ${SLURM_LOG_DIR}/combine.log \
+                    --export=YEAR_TABLE=${YEAR_TABLE},INSTRUMENT_TABLE=${satellite}: \
+                    --time=0:45:00 \
                     --nodes=1 \
-                    --ntasks-per-node=4 \
+                    --ntasks-per-node=1 \
                     --cpus-per-task=1 \
-                ${SCRIPT_DIR}/process_gritas_sat.j)
-                process_job_ids+=($process_job)
-                echo "    - Process job for SYNOP $synop: $process_job"
-            done
-
-            # Join array elements with colons for dependency
-            process_deps=$(IFS=':'; echo "${process_job_ids[*]}")
-
-            # 3. Submit final "all" processing job
-            echo "  - Submitting all-SYNOP process job for $satellite"
-
-            all_process_job=$(sbatch --parsable \
-                --dependency=afterok:${process_deps} \
-                -J ${YEAR_TABLE}.${satellite}.all.process \
-                -o ${SLURM_LOG_DIR}/all.process.log \
-                --export=YEAR_TABLE=${YEAR_TABLE},INSTRUMENT_TABLE=${satellite},SYNOP_TABLE=all,ExpID=$ExpID \
-                --time=1:00:00 \
-                --nodes=1 \
-                --ntasks-per-node=4 \
-                --cpus-per-task=1 \
-                ${SCRIPT_DIR}/process_gritas_sat.j)
-            echo "    - All-SYNOP process job: $all_process_job"
-
-            while squeue -j $all_combine_job >/dev/null 2>&1; do
-                sleep 30
-            done
-            echo "All combine completed"
-        """
+                    ${SCRIPT_DIR}/combine_sat_output.j)
+                echo "    - Combine job: $combine_job"
+                """
         [[[job]]]
             batch system = slurm
             execution time limit = PT2H
