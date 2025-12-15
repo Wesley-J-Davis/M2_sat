@@ -1,5 +1,5 @@
 [meta]
-    title = "M2 Conv Obs"
+    title = "M2 ssu_n14 Obs"
 
 [scheduling]
     initial cycle point = 19800101T0000
@@ -48,6 +48,7 @@
         fi
         SLURM_LOG_DIR=${CYLC_TASK_WORK_DIR}
         move_job_ids=()
+        satellite="ssu_n14"
         SYNOP_TIMES=(00 06 12 18)
         echo $CYLC_TASK_CYCLE_POINT
         YEAR_TABLE=$(echo ${CYLC_TASK_CYCLE_POINT} | cut -c 1-6)
@@ -73,18 +74,18 @@
                 DAY_TABLE=(31 29 31 30 31 30 31 31 30 31 30 31 )
             fi
         fi
-        for SYNOP in "${SYNOP_TIMES[@]}"; do
-            move_conv=$(sbatch --parsable \
-                -J ${YEAR_TABLE}.${SYNOP}.conv.move \
-                -o ${SLURM_LOG_DIR}/${SYNOP}.move.log \
-                --export=YEAR_TABLE=${YEAR_TABLE},INSTRUMENT_TABLE=conv,ExpID=${ExpID},SYNOP=${SYNOP} \
+        for synop in "${SYNOP_TIMES[@]}"; do
+            move_job=$(sbatch --parsable \
+                -J ${YEAR_TABLE}.${synop}.${satellite}.move \
+                -o ${JOB_LOG_DIR}/${synop}.move.log \
                 --time=2:00:00 \
                 --nodes=1 \
                 --ntasks-per-node=1 \
                 --cpus-per-task=1 \
-            ${SCRIPT_DIR}/move_conventionals.j)
-            move_job_ids+=($move_conv)
-            echo "    - Move job: $move_conv"  >&2
+                --export=YEAR_TABLE=${YEAR_TABLE},INSTRUMENT_TABLE=${satellite},SYNOP_TABLE=${synop},ExpID=$ExpID \
+                ${SCRIPT_DIR}/move_sat.j)
+            move_job_ids+=($move_job)
+            echo "    - Move job for SYNOP $synop: $move_job"
         done
 
         move_deps=$(IFS=':'; echo "${move_job_ids[*]}")
